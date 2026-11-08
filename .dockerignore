@@ -1,0 +1,9 @@
+node_modules
+dist
+tmp
+eval
+tests
+.git
+.env
+*.log
+undo-test.txt
