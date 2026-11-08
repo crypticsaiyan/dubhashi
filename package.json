@@ -16,7 +16,10 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "smoke": "tsx scripts/smoke.ts",
-    "eval": "tsx scripts/eval.ts"
+    "eval": "tsx scripts/eval.ts",
+    "test:ui": "vite build && tsx scripts/ui-matrix.ts",
+    "test:live": "tsx scripts/matrix.ts",
+    "test:live-browser": "vite build && tsx scripts/live-browser.ts"
   },
   "dependencies": {
     "react": "^19.3.1",
