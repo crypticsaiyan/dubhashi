@@ -5,148 +5,19 @@
  *
  *   MOCK_AI=1 pnpm start   then   pnpm exec tsx scripts/e2e.ts
  */
-import { spawn } from "node:child_process";
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import WebSocket from "ws";
+import { mkdirSync } from "node:fs";
 import { STRINGS } from "../web/src/strings";
+import { Tab, frames, launchChrome, sleep, until } from "./cdp";
 
 const bn = STRINGS["bn-IN"];
 const ml = STRINGS["ml-IN"];
 
 const BASE = process.env.BASE_URL ?? "http://localhost:8787";
-const PORT = 9333;
-const CHROME = process.env.CHROME ?? "/usr/bin/google-chrome-stable";
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
-class Tab {
-  private id = 0;
-  private pending = new Map<number, (value: { result?: unknown; error?: unknown }) => void>();
-  readonly errors: string[] = [];
-
-  constructor(private readonly ws: WebSocket) {
-    ws.on("message", (data) => {
-      const message = JSON.parse(data.toString());
-      if (message.id) this.pending.get(message.id)?.(message);
-      if (message.method === "Runtime.exceptionThrown") {
-        this.errors.push(message.params.exceptionDetails.exception?.description ?? "exception");
-      }
-      if (message.method === "Runtime.consoleAPICalled" && message.params.type === "error") {
-        this.errors.push(JSON.stringify(message.params.args.map((arg: { value?: unknown }) => arg.value)));
-      }
-    });
-  }
-
-  static async open(url: string): Promise<Tab> {
-    const response = await fetch(`http://127.0.0.1:${PORT}/json/new?${encodeURIComponent(url)}`, { method: "PUT" });
-    const { webSocketDebuggerUrl } = (await response.json()) as { webSocketDebuggerUrl: string };
-    const ws = new WebSocket(webSocketDebuggerUrl, { perMessageDeflate: false });
-    await new Promise((resolve) => ws.once("open", resolve));
-    const tab = new Tab(ws);
-    await tab.call("Runtime.enable");
-    await tab.call("Page.enable");
-    await tab.call("Emulation.setDeviceMetricsOverride", {
-      width: 412, height: 915, deviceScaleFactor: 2, mobile: true,
-    });
-    return tab;
-  }
-
-  call(method: string, params: object = {}): Promise<{ result?: unknown; error?: unknown }> {
-    const id = ++this.id;
-    this.ws.send(JSON.stringify({ id, method, params }));
-    return new Promise((resolve) => this.pending.set(id, resolve));
-  }
-
-  async eval<T>(expression: string): Promise<T> {
-    const reply = (await this.call("Runtime.evaluate", {
-      expression, returnByValue: true, awaitPromise: true,
-    })) as { result?: { result?: { value?: T }; exceptionDetails?: unknown } };
-    if (reply.result?.exceptionDetails) throw new Error(JSON.stringify(reply.result.exceptionDetails));
-    return reply.result?.result?.value as T;
-  }
-
-  text = () => this.eval<string>("document.body.innerText");
-
-  async waitFor(needle: string, timeoutMs = 6000): Promise<void> {
-    const deadline = Date.now() + timeoutMs;
-    while (Date.now() < deadline) {
-      if ((await this.text()).includes(needle)) return;
-      await sleep(80);
-    }
-    throw new Error(`Timed out waiting for "${needle}". Page says:\n${await this.text()}`);
-  }
-
-  async set(selector: string, value: string, event: "input" | "change"): Promise<void> {
-    await this.eval(`(() => {
-      const el = document.querySelector(${JSON.stringify(selector)});
-      const proto = el instanceof HTMLSelectElement ? HTMLSelectElement.prototype : HTMLInputElement.prototype;
-      Object.getOwnPropertyDescriptor(proto, "value").set.call(el, ${JSON.stringify(value)});
-      el.dispatchEvent(new Event(${JSON.stringify(event)}, { bubbles: true }));
-    })()`);
-  }
-
-  async clickText(label: string): Promise<void> {
-    await this.eval(`[...document.querySelectorAll("button")].find((b) => b.innerText.trim() === ${JSON.stringify(label)}).click()`);
-  }
-
-  async pick(group: string, label: string): Promise<void> {
-    await this.eval(`[...document.querySelectorAll(${JSON.stringify(group + " .choice")})]
-      .find((l) => l.innerText.includes(${JSON.stringify(label)})).querySelector("input").click()`);
-  }
-
-  async hold(ms: number): Promise<void> {
-    await this.call("Page.bringToFront");
-    const box = await this.eval<{ x: number; y: number }>(`(() => {
-      const r = document.querySelector(".talk").getBoundingClientRect();
-      return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
-    })()`);
-    const mouse = { ...box, button: "left", clickCount: 1 };
-    await this.call("Input.dispatchMouseEvent", { type: "mousePressed", ...mouse });
-    await sleep(ms);
-    await this.call("Input.dispatchMouseEvent", { type: "mouseReleased", ...mouse });
-  }
-
-  async shot(name: string): Promise<void> {
-    await this.call("Page.bringToFront");
-    await sleep(150);
-    const reply = (await this.call("Page.captureScreenshot", { format: "png" })) as { result?: { data?: string } };
-    writeFileSync(`tmp/${name}.png`, Buffer.from(reply.result?.data ?? "", "base64"));
-  }
-
-  overflow = () => this.eval<boolean>("document.documentElement.scrollWidth > innerWidth");
-}
-
-async function until(tab: Tab, expression: string, label: string, ms = 8000): Promise<void> {
-  const deadline = Date.now() + ms;
-  while (!(await tab.eval<boolean>(expression))) {
-    if (Date.now() > deadline) throw new Error(`Timed out: ${label}`);
-    await sleep(100);
-  }
-}
-
-const frames = (selector: string) =>
-  `(document.querySelector("${selector}")?.videoWidth ?? 0) > 0`;
-
 mkdirSync("tmp", { recursive: true });
-const chrome = spawn(CHROME, [
-  "--headless=new",
-  `--remote-debugging-port=${PORT}`,
-  `--user-data-dir=${mkdtempSync(join(tmpdir(), "dubhashi-e2e-"))}`,
-  "--use-fake-device-for-media-stream",
-  "--use-fake-ui-for-media-stream",
-  "--autoplay-policy=no-user-gesture-required",
-  "--no-first-run",
-  "about:blank",
-], { stdio: "ignore" });
+const chrome = await launchChrome();
 
 let failed = false;
 try {
-  for (let i = 0; i < 50; i++) {
-    const up = await fetch(`http://127.0.0.1:${PORT}/json/version`).catch(() => null);
-    if (up?.ok) break;
-    await sleep(100);
-  }
 
   const patient = await Tab.open(BASE);
   await patient.waitFor("Talk in your language");
