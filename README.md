@@ -65,6 +65,18 @@ For development, run `pnpm dev:server` (or `pnpm dev:mock`) with `pnpm dev:web`,
 
 Browsers only allow the microphone and camera on `localhost` or HTTPS, so testing with real phones needs an HTTPS deployment or tunnel. Set `ALLOWED_ORIGINS` to your site's origin in production.
 
+## Deploy
+
+The app is one Node process holding calls in memory, so it needs a host with WebSockets and a single always-on instance. `render.yaml` sets this up on Render:
+
+1. In the Render dashboard choose **New > Blueprint** and pick this repository.
+2. Enter `GNANI_API_KEY` and `LLM_API_KEY` when asked, then apply.
+3. Once it is live, add `ALLOWED_ORIGINS=https://<your-service>.onrender.com` so only your own page can open calls.
+
+The `Dockerfile` works on any other container host. Set `CLIENT_IP_HEADER` to whatever header your proxy fills with the visitor's IP, so rate limits apply per person.
+
+On Render's free plan the service sleeps after 15 idle minutes and takes about a minute to wake.
+
 ## Test it
 
 ```sh

@@ -1,0 +1,23 @@
+# Render blueprint: Dashboard > New > Blueprint, pick this repo.
+services:
+  - type: web
+    name: dubhashi
+    runtime: docker
+    plan: free
+    # Closest Render region to India, where Gnani's API runs.
+    region: singapore
+    healthCheckPath: /healthz
+    autoDeploy: true
+    envVars:
+      # Entered by hand when the blueprint is applied; never stored in the repo.
+      - key: GNANI_API_KEY
+        sync: false
+      - key: LLM_API_KEY
+        sync: false
+      - key: LLM_BASE_URL
+        value: https://openrouter.ai/api/v1
+      - key: LLM_MODEL
+        value: google/gemma-4-31b-it
+      # Render's Cloudflare edge sets this; X-Forwarded-For can be forged.
+      - key: CLIENT_IP_HEADER
+        value: true-client-ip
