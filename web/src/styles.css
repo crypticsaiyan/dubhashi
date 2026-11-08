@@ -724,14 +724,29 @@ button:disabled {
   background: var(--error);
   border-color: var(--error);
   color: #fff;
-  max-width: 55%;
+  max-width: 100%;
+  border-radius: 18px;
+  line-height: 1.15;
+  text-align: start;
 }
 
+/* Long confirm labels (Malayalam, Telugu) wrap instead of being cut. */
+.end.confirm-end span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.actions.ending {
+  flex: 0 1 65%;
+  justify-content: flex-end;
+}
+
+/* Never shrinks: a long name gets the ellipsis, the buttons stay whole. */
 .actions {
+  flex: none;
   display: flex;
   align-items: center;
   gap: 8px;
-  min-width: 0;
 }
 
 .camera {
@@ -805,8 +820,8 @@ button:disabled {
   position: absolute;
   top: 10px;
   right: 10px;
-  width: 28%;
-  max-width: 120px;
+  /* Sized by height so it clears the caption however short the stage gets. */
+  height: 45%;
   aspect-ratio: 3 / 4;
   object-fit: cover;
   border-radius: 14px;

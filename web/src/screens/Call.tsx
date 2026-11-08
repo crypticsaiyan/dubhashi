@@ -194,7 +194,7 @@ export function Call({
             </span>
           </div>
         </div>
-        <div className="actions">
+        <div className={ending ? "actions ending" : "actions"}>
           {!ending && (
             <button
               type="button"
