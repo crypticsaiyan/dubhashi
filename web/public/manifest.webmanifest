@@ -1,0 +1,11 @@
+{
+  "name": "Dubhashi",
+  "short_name": "Dubhashi",
+  "description": "Talk in your language. They hear theirs.",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f6f1e7",
+  "theme_color": "#f6f1e7",
+  "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}
