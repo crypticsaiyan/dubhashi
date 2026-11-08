@@ -14,6 +14,8 @@ export interface Config {
   llmModel: string;
   allowedOrigins: string[];
   iceServers: IceServer[];
+  /** Behind a proxy, every client shares its IP, so read X-Forwarded-For instead. */
+  trustProxy: boolean;
 }
 
 /** ICE_SERVERS is a JSON array, e.g. to add a TURN server for strict mobile networks. */
@@ -48,6 +50,7 @@ export function loadConfig(): Config {
     llmModel: env.LLM_MODEL ?? "google/gemma-4-31b-it",
     allowedOrigins: (env.ALLOWED_ORIGINS ?? "").split(",").filter(Boolean),
     iceServers: parseIceServers(env.ICE_SERVERS),
+    trustProxy: env.TRUST_PROXY === "1",
   };
   if (!mock) {
     const missing = [

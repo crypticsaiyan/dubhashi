@@ -358,3 +358,47 @@ describe("two-person call", () => {
     site.close();
   });
 });
+
+describe("rate limits behind a proxy", () => {
+  async function createFrom(url: string, ip: string): Promise<ServerMessage> {
+    const ws = new WebSocket(url, { headers: { "X-Forwarded-For": `${ip}, 10.0.0.1` } });
+    const client = new Client(ws);
+    await once(ws, "open");
+    client.send({ type: "create", relationship: "friend", name: "A", language: "hi-IN", gender: "male" });
+    for (const end = Date.now() + 2000; Date.now() < end; await new Promise((r) => setTimeout(r, 20))) {
+      const reply = client.messages.find((m) => m.type === "joined" || m.type === "error");
+      if (reply) {
+        ws.close();
+        return reply;
+      }
+    }
+    throw new Error("no reply to create");
+  }
+
+  async function serve(trustProxy: boolean) {
+    const app = createApp({
+      config: { mock: true, allowedOrigins: [], trustProxy },
+      speech: new MockSpeech(),
+      translator: new MockTranslator(),
+      limits: { rooms: 1, voices: 1 },
+    });
+    app.server.listen(0);
+    await once(app.server, "listening");
+    return { app, url: `ws://127.0.0.1:${(app.server.address() as AddressInfo).port}/ws` };
+  }
+
+  it("limits each forwarded visitor separately when the proxy is trusted", async () => {
+    const { app, url } = await serve(true);
+    expect((await createFrom(url, "1.1.1.1")).type).toBe("joined");
+    expect((await createFrom(url, "2.2.2.2")).type).toBe("joined");
+    expect((await createFrom(url, "1.1.1.1")).type).toBe("error");
+    app.close();
+  });
+
+  it("ignores a forged header when no proxy is trusted", async () => {
+    const { app, url } = await serve(false);
+    expect((await createFrom(url, "1.1.1.1")).type).toBe("joined");
+    expect((await createFrom(url, "2.2.2.2")).type).toBe("error");
+    app.close();
+  });
+});
