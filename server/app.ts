@@ -30,7 +30,7 @@ const MIME: Record<string, string> = {
 };
 
 export interface AppDeps {
-  config: Pick<Config, "mock" | "allowedOrigins"> & Partial<Pick<Config, "iceServers" | "trustProxy">>;
+  config: Pick<Config, "mock" | "allowedOrigins"> & Partial<Pick<Config, "iceServers" | "clientIpHeader">>;
   speech: Speech;
   translator: Translator;
   staticDir?: string;
@@ -60,11 +60,10 @@ export function createApp(deps: AppDeps): { server: Server; rooms: Map<string, R
   const originAllowed = (origin: string | undefined) =>
     config.allowedOrigins.length === 0 || (origin !== undefined && config.allowedOrigins.includes(origin));
 
-  /** The left-most forwarded address is the one the trusted proxy saw. */
   const clientIp = (request: IncomingMessage) => {
-    const forwarded = request.headers["x-forwarded-for"];
-    const first = (Array.isArray(forwarded) ? forwarded[0] : forwarded)?.split(",")[0]?.trim();
-    return (config.trustProxy && first) || request.socket.remoteAddress || "unknown";
+    const fromProxy = config.clientIpHeader ? request.headers[config.clientIpHeader] : undefined;
+    const ip = Array.isArray(fromProxy) ? fromProxy[0] : fromProxy;
+    return ip?.trim() || request.socket.remoteAddress || "unknown";
   };
 
   function newCode(): string {

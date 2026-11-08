@@ -10,7 +10,7 @@ RUN pnpm build
 FROM node:24-slim
 WORKDIR /app
 RUN corepack enable && corepack prepare pnpm@10.20.0 --activate
-ENV NODE_ENV=production PORT=8787 TRUST_PROXY=1
+ENV NODE_ENV=production PORT=8787
 COPY package.json pnpm-lock.yaml ./
 RUN pnpm install --frozen-lockfile --prod && pnpm store prune
 COPY --from=build /app/dist ./dist

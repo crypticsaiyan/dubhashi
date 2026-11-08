@@ -361,7 +361,7 @@ describe("two-person call", () => {
 
 describe("rate limits behind a proxy", () => {
   async function createFrom(url: string, ip: string): Promise<ServerMessage> {
-    const ws = new WebSocket(url, { headers: { "X-Forwarded-For": `${ip}, 10.0.0.1` } });
+    const ws = new WebSocket(url, { headers: { "True-Client-IP": ip, "X-Forwarded-For": ip } });
     const client = new Client(ws);
     await once(ws, "open");
     client.send({ type: "create", relationship: "friend", name: "A", language: "hi-IN", gender: "male" });
@@ -375,9 +375,9 @@ describe("rate limits behind a proxy", () => {
     throw new Error("no reply to create");
   }
 
-  async function serve(trustProxy: boolean) {
+  async function serve(clientIpHeader: string) {
     const app = createApp({
-      config: { mock: true, allowedOrigins: [], trustProxy },
+      config: { mock: true, allowedOrigins: [], clientIpHeader },
       speech: new MockSpeech(),
       translator: new MockTranslator(),
       limits: { rooms: 1, voices: 1 },
@@ -387,16 +387,16 @@ describe("rate limits behind a proxy", () => {
     return { app, url: `ws://127.0.0.1:${(app.server.address() as AddressInfo).port}/ws` };
   }
 
-  it("limits each forwarded visitor separately when the proxy is trusted", async () => {
-    const { app, url } = await serve(true);
+  it("limits each visitor separately using the proxy's header", async () => {
+    const { app, url } = await serve("true-client-ip");
     expect((await createFrom(url, "1.1.1.1")).type).toBe("joined");
     expect((await createFrom(url, "2.2.2.2")).type).toBe("joined");
     expect((await createFrom(url, "1.1.1.1")).type).toBe("error");
     app.close();
   });
 
-  it("ignores a forged header when no proxy is trusted", async () => {
-    const { app, url } = await serve(false);
+  it("ignores client-set headers when no proxy header is configured", async () => {
+    const { app, url } = await serve("");
     expect((await createFrom(url, "1.1.1.1")).type).toBe("joined");
     expect((await createFrom(url, "2.2.2.2")).type).toBe("error");
     app.close();

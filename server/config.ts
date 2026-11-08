@@ -14,8 +14,12 @@ export interface Config {
   llmModel: string;
   allowedOrigins: string[];
   iceServers: IceServer[];
-  /** Behind a proxy, every client shares its IP, so read X-Forwarded-For instead. */
-  trustProxy: boolean;
+  /**
+   * Header holding the visitor's IP, set by the proxy in front (Render and
+   * Cloudflare: true-client-ip). Empty means clients connect directly.
+   * X-Forwarded-For is not used: proxies append to it, so clients can forge it.
+   */
+  clientIpHeader: string;
 }
 
 /** ICE_SERVERS is a JSON array, e.g. to add a TURN server for strict mobile networks. */
@@ -50,7 +54,7 @@ export function loadConfig(): Config {
     llmModel: env.LLM_MODEL ?? "google/gemma-4-31b-it",
     allowedOrigins: (env.ALLOWED_ORIGINS ?? "").split(",").filter(Boolean),
     iceServers: parseIceServers(env.ICE_SERVERS),
-    trustProxy: env.TRUST_PROXY === "1",
+    clientIpHeader: (env.CLIENT_IP_HEADER ?? "").trim().toLowerCase(),
   };
   if (!mock) {
     const missing = [
