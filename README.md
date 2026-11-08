@@ -73,9 +73,21 @@ pnpm test                          # units, fake Prisma socket, two-person call 
 MOCK_AI=1 pnpm start               # then, in a second terminal:
 pnpm exec tsx scripts/e2e.ts       # full call in two Chrome tabs with a fake microphone
 
+pnpm test:ui                       # 10 languages x 3 screen sizes x light/dark, plus failure paths
+
 pnpm smoke                         # live APIs: STT per language, cross-language cloning, translation
 pnpm eval                          # 30 scripted turns, written to eval/results.csv
+pnpm test:live                     # every language speaks and listens through the real server
+pnpm test:live-browser             # real speech through Chrome's mic into live Prisma
 ```
+
+| Suite | What it proves | Last result |
+| --- | --- | --- |
+| `test:ui` | No sideways scroll, clipped or untranslated label in any of 10 languages on 320 px, 390 px and desktop, light and dark. Unknown code, full room, refused mic or camera, peer dropping off, space bar to talk, blank and oversized typed turns | 30/30 layouts, 7/7 failure paths |
+| `test:live` | Each language as speaker (spoken) and listener (typed), both genders, all four relationships, a cloned voice. Checks target script, numbers kept, back-translation, summaries and spoken summary. The listener's audio is run back through Prisma to confirm it is intelligible | 20/20 turns, p50 1.7 s release to first audio |
+| `test:live-browser` | The browser mic worklet and playback with real Prisma, Timbre and LLM | 3/3, 1.6 to 2.0 s |
+
+Reading the `test:live` output also caught three translation faults that every automatic check passed: a statement turned into a question, an endearment the speaker never said, and an over-familiar pronoun. The prompt now fixes sentence type and forbids added forms of address; `eval/matrix.csv` holds the rerun.
 
 `pnpm eval` uses clean Timbre audio, so it measures latency and number handling, not real microphone accuracy. Naturalness and respect need ratings from native speakers, and the CSV has blank columns for them.
 
