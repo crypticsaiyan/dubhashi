@@ -35,6 +35,8 @@ export interface AppDeps {
   translator: Translator;
   staticDir?: string;
   roomOptions?: Partial<RoomOptions>;
+  /** Per-IP limits per hour. Raised only by test harnesses. */
+  limits?: { rooms: number; voices: number };
 }
 
 interface StoredVoice {
@@ -46,8 +48,8 @@ export function createApp(deps: AppDeps): { server: Server; rooms: Map<string, R
   const { config, speech, translator } = deps;
   const rooms = new Map<string, Room>();
   const voices = new Map<string, StoredVoice>();
-  const roomLimiter = new WindowLimiter(30, 60 * 60 * 1000);
-  const voiceLimiter = new WindowLimiter(10, 60 * 60 * 1000);
+  const roomLimiter = new WindowLimiter(deps.limits?.rooms ?? 30, 60 * 60 * 1000);
+  const voiceLimiter = new WindowLimiter(deps.limits?.voices ?? 10, 60 * 60 * 1000);
   const roomOptions: RoomOptions = {
     ...DEFAULT_ROOM_OPTIONS,
     mock: config.mock,
