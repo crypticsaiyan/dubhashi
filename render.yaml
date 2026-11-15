@@ -19,5 +19,9 @@ services:
       - key: LLM_MODEL
         value: google/gemma-4-31b-it
       # Render's Cloudflare edge sets this; X-Forwarded-For can be forged.
+      - key: CF_TURN_KEY_ID
+        sync: false
+      - key: CF_TURN_API_TOKEN
+        sync: false
       - key: CLIENT_IP_HEADER
         value: true-client-ip

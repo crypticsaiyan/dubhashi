@@ -153,6 +153,59 @@ describe("two-person call", () => {
     expect(patient.messages.filter((m) => m.type === "signal")).toHaveLength(1);
   });
 
+  it("relays camera frames to the other person, and refuses strangers", async () => {
+    const { patient, doctor, code } = await startCall();
+    const tokenOf = async (client: Client) => (await client.next("joined")).token;
+    const frames = async (token: string) => {
+      const ws = new WebSocket(`${url.replace(/\/ws$/, "/frames")}?code=${code}&token=${token}`);
+      await once(ws, "open");
+      return ws;
+    };
+    const fromPatient = await frames(await tokenOf(patient));
+    const toDoctor = await frames(await tokenOf(doctor));
+    const got = once(toDoctor, "message");
+    fromPatient.send(Buffer.from([0xff, 0xd8, 1, 2, 3]), { binary: true });
+    expect([...((await got)[0] as Buffer)]).toEqual([0xff, 0xd8, 1, 2, 3]);
+
+    const stranger = new WebSocket(`${url.replace(/\/ws$/, "/frames")}?code=${code}&token=nope`);
+    await expect(once(stranger, "open")).rejects.toThrow();
+    fromPatient.close();
+    toDoctor.close();
+  });
+
+  it("gives each new room the current ICE servers, shared by both people", async () => {
+    let issued = 0;
+    const own = createApp({
+      config: { mock: true, allowedOrigins: [] },
+      speech,
+      translator,
+      iceServers: () => [{ urls: `turn:relay${++issued}`, username: "u", credential: "c" }],
+    });
+    own.server.listen(0);
+    await once(own.server, "listening");
+    const ownUrl = `ws://127.0.0.1:${(own.server.address() as AddressInfo).port}/ws`;
+    const open = async () => {
+      const ws = new WebSocket(ownUrl);
+      const client = new Client(ws);
+      await once(ws, "open");
+      return client;
+    };
+    try {
+      const first = await open();
+      first.send({ type: "create", relationship: "friend", name: "Asha", language: "bn-IN", gender: "female" });
+      const joined = await first.next("joined");
+      expect(joined.iceServers).toEqual([{ urls: "turn:relay1", username: "u", credential: "c" }]);
+      const second = await open();
+      second.send({ type: "join", code: joined.code, name: "Ravi", language: "hi-IN", gender: "male" });
+      expect((await second.next("joined")).iceServers[0]?.urls).toBe("turn:relay1");
+      const third = await open();
+      third.send({ type: "create", relationship: "friend", name: "Kumar", language: "ta-IN", gender: "male" });
+      expect((await third.next("joined")).iceServers[0]?.urls).toBe("turn:relay2");
+    } finally {
+      own.close();
+    }
+  });
+
   it("gives the translator direction, relationship and memory", async () => {
     const { patient, doctor } = await startCall("friend");
     await speak(patient, "first");

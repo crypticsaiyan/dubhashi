@@ -20,6 +20,9 @@ export interface Config {
    * X-Forwarded-For is not used: proxies append to it, so clients can forge it.
    */
   clientIpHeader: string;
+  /** Cloudflare Realtime TURN key. Both set: video gets a relay for strict networks. */
+  turnKeyId: string;
+  turnApiToken: string;
 }
 
 /** ICE_SERVERS is a JSON array, e.g. to add a TURN server for strict mobile networks. */
@@ -55,6 +58,8 @@ export function loadConfig(): Config {
     allowedOrigins: (env.ALLOWED_ORIGINS ?? "").split(",").filter(Boolean),
     iceServers: parseIceServers(env.ICE_SERVERS),
     clientIpHeader: (env.CLIENT_IP_HEADER ?? "").trim().toLowerCase(),
+    turnKeyId: (env.CF_TURN_KEY_ID ?? "").trim(),
+    turnApiToken: (env.CF_TURN_API_TOKEN ?? "").trim(),
   };
   if (!mock) {
     const missing = [

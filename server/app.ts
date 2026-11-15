@@ -5,7 +5,7 @@ import type { IncomingMessage, Server, ServerResponse } from "node:http";
 import { extname, join, normalize, resolve, sep } from "node:path";
 import { WebSocketServer } from "ws";
 import type { WebSocket } from "ws";
-import type { ClientMessage, Profile, Relationship, ServerMessage } from "../shared/protocol";
+import type { ClientMessage, IceServer, Profile, Relationship, ServerMessage } from "../shared/protocol";
 import type { Config } from "./config";
 import { WindowLimiter } from "./limiter";
 import { parseClientMessage } from "./messages";
@@ -13,6 +13,9 @@ import type { SpeakerEmbedding, Speech, Translator } from "./providers/types";
 import { DEFAULT_ROOM_OPTIONS, Room } from "./room";
 import type { Connection, Member, RoomOptions } from "./room";
 
+/** About 12 frames a second at most, per sender. */
+const MIN_FRAME_GAP_MS = 80;
+const MAX_FRAME_BACKLOG = 256 * 1024;
 const MAX_VOICE_BYTES = 2 * 1024 * 1024;
 const VOICE_TTL_MS = 60 * 60 * 1000;
 const ROOM_IDLE_MS = 30 * 60 * 1000;
@@ -35,6 +38,8 @@ export interface AppDeps {
   translator: Translator;
   staticDir?: string;
   roomOptions?: Partial<RoomOptions>;
+  /** ICE servers for each new room, e.g. fresh TURN credentials. Defaults to config.iceServers. */
+  iceServers?: () => IceServer[];
   /** Per-IP limits per hour. Raised only by test harnesses. */
   limits?: { rooms: number; voices: number };
 }
@@ -155,12 +160,48 @@ export function createApp(deps: AppDeps): { server: Server; rooms: Map<string, R
 
   server.on("upgrade", (request, socket, head) => {
     const { pathname } = new URL(request.url ?? "/", "http://localhost");
-    if (pathname !== "/ws" || !originAllowed(request.headers.origin)) {
+    if ((pathname !== "/ws" && pathname !== "/frames") || !originAllowed(request.headers.origin)) {
       socket.destroy();
+      return;
+    }
+    if (pathname === "/frames") {
+      const query = new URL(request.url ?? "/", "http://localhost").searchParams;
+      const room = rooms.get(query.get("code") ?? "");
+      const member = room?.members.find((m) => m.token === query.get("token"));
+      if (!room || !member) {
+        socket.destroy();
+        return;
+      }
+      wss.handleUpgrade(request, socket, head, (ws) => attachFrames(ws, room, member));
       return;
     }
     wss.handleUpgrade(request, socket, head, (ws) => attach(ws, request));
   });
+
+  /**
+   * Camera frames as JPEG, for when the phones cannot reach each other
+   * directly (carrier NAT on mobile data). Kept off the call socket so frames
+   * never delay voice. Frames are dropped, not queued, when either side lags.
+   */
+  const frameSockets = new Map<string, WebSocket>();
+  function attachFrames(ws: WebSocket, room: Room, member: Member): void {
+    frameSockets.get(member.id)?.close();
+    frameSockets.set(member.id, ws);
+    let lastSent = 0;
+    ws.on("message", (data, isBinary) => {
+      const now = Date.now();
+      if (!isBinary || room.phase === "ended" || now - lastSent < MIN_FRAME_GAP_MS) return;
+      const peer = room.members.find((m) => m !== member);
+      const target = peer && frameSockets.get(peer.id);
+      if (!target || target.readyState !== target.OPEN || target.bufferedAmount > MAX_FRAME_BACKLOG) return;
+      lastSent = now;
+      target.send(data, { binary: true });
+    });
+    ws.on("close", () => {
+      if (frameSockets.get(member.id) === ws) frameSockets.delete(member.id);
+    });
+    ws.on("error", (error) => console.error("[frames]", error.message));
+  }
 
   function attach(ws: WebSocket, request: IncomingMessage): void {
     let room: Room | null = null;
@@ -246,7 +287,8 @@ export function createApp(deps: AppDeps): { server: Server; rooms: Map<string, R
   }
 
   function createRoom(relationship: Relationship): Room {
-    const room = new Room(newCode(), relationship, speech, translator, roomOptions);
+    const options = deps.iceServers ? { ...roomOptions, iceServers: deps.iceServers() } : roomOptions;
+    const room = new Room(newCode(), relationship, speech, translator, options);
     rooms.set(room.code, room);
     return room;
   }

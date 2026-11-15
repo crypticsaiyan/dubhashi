@@ -1,9 +1,12 @@
 import type { IceServer, Signal } from "../../shared/protocol";
+import { FrameRelay } from "./frames";
 
 export interface VideoState {
   local: MediaStream | null;
-  /** Set only while the other person has their camera on. */
+  /** Set only while the other person has their camera on and the direct link is up. */
   remote: MediaStream | null;
+  /** Latest relayed frame (object URL), used while there is no direct link. */
+  frame: string | null;
 }
 
 /**
@@ -11,13 +14,21 @@ export interface VideoState {
  * person hears the other only through the translator, never raw.
  *
  * Uses the "perfect negotiation" pattern so either side can switch its camera
- * on at any time without the two offers colliding.
+ * on at any time without the two offers colliding. While the direct link is
+ * not connected, frames also go through the server, so video still shows on
+ * networks where phones cannot reach each other.
  */
 export class VideoLink {
   private pc: RTCPeerConnection | null = null;
   private camera: MediaStream | null = null;
   private remote: MediaStream | null = null;
   private peerCamera = false;
+  private connected = false;
+  private frame: string | null = null;
+  private readonly relay = new FrameRelay((url) => {
+    this.frame = url;
+    this.emit();
+  });
   private makingOffer = false;
   private ignoreOffer = false;
   private iceServers: IceServer[] = [];
@@ -29,9 +40,10 @@ export class VideoLink {
   ) {}
 
   /** The person who joined is polite: their offer yields if both offer at once. */
-  configure(iceServers: IceServer[], polite: boolean): void {
+  configure(iceServers: IceServer[], polite: boolean, framesUrl: string): void {
     this.iceServers = iceServers;
     this.polite = polite;
+    this.relay.connect(framesUrl);
   }
 
   get cameraOn(): boolean {
@@ -58,6 +70,7 @@ export class VideoLink {
     } else {
       pc.addTrack(track, stream);
     }
+    this.relay.start(stream, () => !this.connected);
     this.send({ kind: "camera", on: true });
     this.emit();
   }
@@ -66,6 +79,7 @@ export class VideoLink {
     if (!this.camera) return;
     this.camera.getTracks().forEach((t) => t.stop());
     this.camera = null;
+    this.relay.stop();
     const sender = this.pc?.getSenders().find((s) => s.track?.kind === "video");
     void sender?.replaceTrack(null);
     this.send({ kind: "camera", on: false });
@@ -76,6 +90,7 @@ export class VideoLink {
     if (signal.kind === "hello") return this.reset();
     if (signal.kind === "camera") {
       this.peerCamera = signal.on;
+      if (!signal.on) this.relay.clearFrame();
       return this.emit();
     }
     const pc = this.connection();
@@ -107,6 +122,8 @@ export class VideoLink {
     this.pc = null;
     this.remote = null;
     this.peerCamera = false;
+    this.connected = false;
+    this.relay.clearFrame();
     this.makingOffer = false;
     this.ignoreOffer = false;
     const track = this.camera?.getVideoTracks()[0];
@@ -124,6 +141,8 @@ export class VideoLink {
     this.pc = null;
     this.remote = null;
     this.peerCamera = false;
+    this.connected = false;
+    this.relay.close();
     this.emit();
   }
 
@@ -153,6 +172,11 @@ export class VideoLink {
     pc.oniceconnectionstatechange = () => {
       if (pc.iceConnectionState === "failed") pc.restartIce();
     };
+    pc.onconnectionstatechange = () => {
+      if (this.pc !== pc) return;
+      this.connected = pc.connectionState === "connected";
+      this.emit();
+    };
     pc.ontrack = ({ track, streams }) => {
       this.remote = streams[0] ?? new MediaStream([track]);
       this.emit();
@@ -167,6 +191,11 @@ export class VideoLink {
   }
 
   private emit(): void {
-    this.onChange({ local: this.camera, remote: this.peerCamera ? this.remote : null });
+    const live = this.peerCamera && this.connected;
+    this.onChange({
+      local: this.camera,
+      remote: live ? this.remote : null,
+      frame: this.peerCamera && !this.connected ? this.frame : null,
+    });
   }
 }

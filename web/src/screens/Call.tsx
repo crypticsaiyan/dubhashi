@@ -222,10 +222,12 @@ export function Call({
 
       {state.mock && <MockBanner />}
 
-      {(call.video.remote || call.video.local) && (
+      {(call.video.remote || call.video.frame || call.video.local) && (
         <section className="stage">
           {call.video.remote ? (
             <VideoTile stream={call.video.remote} className="remote" />
+          ) : call.video.frame ? (
+            <img src={call.video.frame} className="remote" alt="" />
           ) : (
             <div className="remote off">
               <span className="avatar big">{peer.name.trim().charAt(0).toUpperCase()}</span>
@@ -467,7 +469,11 @@ function Waiting({
 function VideoTile({ stream, className }: { stream: MediaStream; className: string }) {
   const ref = useRef<HTMLVideoElement>(null);
   useEffect(() => {
-    if (ref.current) ref.current.srcObject = stream;
+    const video = ref.current;
+    if (!video) return;
+    video.srcObject = stream;
+    // Some phone browsers skip autoplay when the stream is attached late.
+    video.play().catch(() => {});
   }, [stream]);
   // Muted: video carries no sound, and muted video may autoplay on phones.
   return <video ref={ref} className={className} autoPlay playsInline muted />;

@@ -46,6 +46,12 @@ function socketUrl(): string {
   return `${scheme}://${location.host}/ws`;
 }
 
+function framesUrl(code: string, token: string): string {
+  const scheme = location.protocol === "https:" ? "wss" : "ws";
+  const query = new URLSearchParams({ code, token });
+  return `${scheme}://${location.host}/frames?${query}`;
+}
+
 export function useCall() {
   const [state, dispatch] = useReducer(reduce, initialState);
   const socket = useRef<WebSocket | null>(null);
@@ -64,7 +70,7 @@ export function useCall() {
   const entries = useRef<Entry[]>([]);
   /** Set when this page reloaded into a call, so the peer resets its video link. */
   const reloaded = useRef(false);
-  const [video, setVideo] = useState<VideoState>({ local: null, remote: null });
+  const [video, setVideo] = useState<VideoState>({ local: null, remote: null, frame: null });
 
   /** Clears the playing marker once queued audio has actually played. */
   const finishAfterPlayback = useCallback(
@@ -115,7 +121,7 @@ export function useCall() {
         const message = JSON.parse(event.data) as ServerMessage;
         if (message.type === "joined") {
           session.current = { code: message.code, token: message.token };
-          link.configure(message.iceServers, polite.current);
+          link.configure(message.iceServers, polite.current, framesUrl(message.code, message.token));
           persist();
           if (reloaded.current) {
             reloaded.current = false;

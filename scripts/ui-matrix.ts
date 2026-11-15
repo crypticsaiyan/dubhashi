@@ -86,7 +86,7 @@ async function startCall(
   await tab.pick(".relations", relationship);
   await tab.clickText("Start call");
   await tab.waitFor(STRINGS[language].waiting);
-  await sleep(200);
+  await until(tab, '!!document.querySelector(".room-code")?.getAttribute("aria-label")', "room code");
   const code = (await tab.eval<string>('document.querySelector(".room-code").getAttribute("aria-label")')).trim();
   return { tab, code };
 }
@@ -234,6 +234,33 @@ try {
     console.log("ok   refused camera shows a notice, call continues");
     tab.close();
     peer.close();
+
+    // Carrier NAT on mobile data: no direct path, so frames go through the server.
+    const noDirectPath = `(() => {
+      const Real = RTCPeerConnection;
+      window.RTCPeerConnection = function (config) { return new Real({ ...config, iceServers: [], iceTransportPolicy: "relay" }); };
+      window.RTCPeerConnection.prototype = Real.prototype;
+    })()`;
+    {
+      const { tab, code } = await startCall(PHONE, "en-IN", "Asha");
+      const peer = await join(code, "hi-IN", "Ravi");
+      await tab.waitFor(en.hold);
+      await tab.eval(noDirectPath);
+      await peer.eval(noDirectPath);
+      await tab.eval(`document.querySelector(".camera").click()`);
+      await until(peer, '(document.querySelector("img.remote")?.naturalWidth ?? 0) > 0', "relayed frame shows", 10_000);
+      // Background tabs run timers once a second; a phone sending video is in front.
+      await tab.call("Page.bringToFront");
+      const first = await peer.eval<string>('document.querySelector("img.remote").src');
+      await sleep(600);
+      check((await peer.eval<string>('document.querySelector("img.remote").src')) !== first, "relayed video is frozen");
+      await tab.eval(`document.querySelector(".camera").click()`);
+      await until(peer, '!document.querySelector(".stage")', "relayed video clears when camera goes off");
+      check(tab.errors.length === 0 && peer.errors.length === 0, `relay console errors ${[...tab.errors, ...peer.errors].join("; ")}`);
+      tab.close();
+      peer.close();
+      console.log("ok   no direct path: video goes through the server");
+    }
 
     const denied = await Tab.open(BASE);
     await denied.waitFor("Talk in your language");
