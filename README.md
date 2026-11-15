@@ -28,7 +28,7 @@ Hold to talk
 | Own voice | A 5 to 30 second sample creates a voice profile, used only with consent |
 | Bilingual summary | After the call, each person gets key points and next steps in their language, on screen and spoken |
 | Latency panel | STT, LLM and TTS time for every turn |
-| Video call | Optional peer-to-peer camera, with the latest translation shown as a caption over the face |
+| Video call | Optional camera, with the latest translation shown as a caption over the face. Peer-to-peer when possible, relayed through the server on mobile networks that block direct links |
 | Type instead | A typed turn takes the same path minus STT, for noisy wards, hearing loss, or a word STT keeps missing |
 | Rejoin after reload | Phones often reload a tab after switching apps. The call and transcript come back with one tap |
 | Replay | Any turn heard can be played again |
@@ -40,7 +40,7 @@ Hold to talk
 - **One STT socket per press.** This avoids the 15 minute session limit and idle timeouts. Audio is buffered until the socket opens, then drained at twice real time.
 - **One queue per API key.** Every room shares a serial queue for TTS and voice calls, with backoff on `429`.
 - **Providers behind interfaces.** `MOCK_AI=1` swaps in fake speech and translation, so the whole app can be tested without keys. The UI shows a banner in this mode.
-- **Video carries no sound.** WebRTC sends only the camera. Voices always go through the interpreter, so nobody hears the original and the translation on top of each other. The server only relays signalling; media goes phone to phone.
+- **Video carries no sound.** WebRTC sends only the camera. Voices always go through the interpreter, so nobody hears the original and the translation on top of each other. Video goes phone to phone when the network allows. Under carrier NAT, where it cannot, each camera sends small JPEG frames through the server on a separate socket, so voice is never delayed.
 - **Open-weights LLM.** Evon v3.3 is not on the API platform, and the Gnani team advised using any open-weights LLM. Any OpenAI-compatible endpoint works. The default is Gemma 4 31B through OpenRouter: in side-by-side runs gpt-oss-120b moved a Malayalam "not on an empty stomach" into the wrong meaning and turned "twice a day" into "day 2", while Gemma kept both.
 
 ## Run it
