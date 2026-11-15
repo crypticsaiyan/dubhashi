@@ -26,3 +26,16 @@ const { server } = createApp({
 server.listen(config.port, () => {
   console.log(`Dubhashi on http://localhost:${config.port}${config.mock ? " (mock providers)" : ""}`);
 });
+
+// Render's free plan sleeps after 15 idle minutes and takes about a minute to
+// wake. Render sets RENDER_EXTERNAL_URL; a request to it goes out and back in
+// through Render's proxy, so it counts as traffic and keeps the service awake.
+const publicUrl = process.env.RENDER_EXTERNAL_URL;
+if (publicUrl && process.env.KEEP_AWAKE !== "0") {
+  setInterval(() => {
+    fetch(`${publicUrl}/healthz`, { signal: AbortSignal.timeout(10_000) }).catch((error: unknown) => {
+      console.error("[keep-awake]", error instanceof Error ? error.message : error);
+    });
+  }, 10 * 60 * 1000).unref();
+  console.log(`Keep-awake: pinging ${publicUrl}/healthz every 10 minutes`);
+}
