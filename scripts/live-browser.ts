@@ -8,6 +8,8 @@
  * whole sentence is always inside the capture.
  *
  *   pnpm build && pnpm exec tsx scripts/live-browser.ts
+ *
+ * Set TARGET to a deployed URL to test that instead of an in-process server.
  */
 import { once } from "node:events";
 import { mkdirSync, writeFileSync } from "node:fs";
@@ -32,10 +34,13 @@ const nameOf = (code: LanguageCode) => LANGUAGES.find((l) => l.code === code)!.n
 
 const config = loadConfig();
 const speech = new GnaniSpeech(config);
-const app = createApp({ config, speech, translator: new LlmTranslator(config), staticDir: "dist" });
-app.server.listen(0);
-await once(app.server, "listening");
-const BASE = `http://localhost:${(app.server.address() as AddressInfo).port}`;
+const target = process.env.TARGET?.replace(/\/$/, "");
+const app = target ? null : createApp({ config, speech, translator: new LlmTranslator(config), staticDir: "dist" });
+if (app) {
+  app.server.listen(0);
+  await once(app.server, "listening");
+}
+const BASE = target ?? `http://localhost:${(app!.server.address() as AddressInfo).port}`;
 mkdirSync("tmp", { recursive: true });
 
 const failures: string[] = [];
@@ -58,7 +63,7 @@ for (const c of CASES) {
     await a.pick(".relations", "Friend");
     await a.clickText("Start call");
     await a.waitFor(STRINGS[c.speaker].waiting);
-    await sleep(200);
+    await until(a, '!!document.querySelector(".room-code")?.getAttribute("aria-label")', "room code");
     const code = (await a.eval<string>('document.querySelector(".room-code").getAttribute("aria-label")')).trim();
     const b = await Tab.open(`${BASE}/?code=${code}`);
     await b.waitFor("Call code");
@@ -98,6 +103,6 @@ for (const c of CASES) {
   }
 }
 
-app.close();
+app?.close();
 console.log(failures.length ? `\nFAILURES:\n- ${failures.join("\n- ")}` : "\nPASS");
 process.exit(failures.length ? 1 : 0);

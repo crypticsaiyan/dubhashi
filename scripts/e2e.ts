@@ -42,7 +42,7 @@ try {
   await patient.clickText("Finish");
   await patient.waitFor(bn.waiting);
   console.log("voice enrolled with consent");
-  await sleep(300);
+  await until(patient, '!!document.querySelector(".room-code")?.getAttribute("aria-label")', "room code");
   const code = (await patient.eval<string>('document.querySelector(".room-code").getAttribute("aria-label")')).trim();
   console.log("room", code);
   await patient.shot("2-waiting");
