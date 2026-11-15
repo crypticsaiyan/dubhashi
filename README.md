@@ -4,6 +4,8 @@ A live interpreter for two people who share no language. Each person talks in th
 
 Built for the Great Indian AI Internship Challenge on Gnani AI's speech models.
 
+**One-page pitch:** [PITCH.md](PITCH.md) · **Live:** https://dubhashi.onrender.com
+
 ## Architecture
 
 ![Dubhashi architecture: browsers, the Node server, and the Gnani Prisma, Timbre and voice clone models](docs/architecture.png)
