@@ -1,6 +1,6 @@
 # Dubhashi: talk in your language, they hear theirs
 
-**Live app:** https://dubhashi.onrender.com · **Demo video:** _add link_ · **Code:** https://github.com/crypticsaiyan/dubhashi
+**Live app:** https://dubhashi.onrender.com · **Demo video:** https://youtu.be/r9m_MzWjuxY · **Code:** https://github.com/crypticsaiyan/dubhashi
 
 ## The problem
 
