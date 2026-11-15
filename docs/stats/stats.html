@@ -1,0 +1,91 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+:root{--bg:#f6f1e7;--surface:#fffdf8;--surface2:#efe8da;--ink:#23241f;--muted:#6b6a60;--line:#e2d9c8;--primary:#1f5c4a;--psoft:#d4e6dd;--accent:#b5502b;--asoft:#f5ddd2}
+*{box-sizing:border-box;margin:0}
+html,body{width:100%;height:100%}
+body{background:var(--bg);color:var(--ink);font-family:"Inter","Noto Sans","Noto Sans Devanagari",system-ui,sans-serif;display:flex;flex-direction:column;padding:56px 88px 44px}
+.brand{display:flex;align-items:center;gap:16px;font-weight:700;font-size:28px;color:var(--primary)}
+.mark{width:52px;height:52px;border-radius:14px;background:var(--primary);color:#fffdf8;display:grid;place-items:center;font-size:24px;line-height:1;font-family:"Noto Sans Devanagari","Noto Sans Tamil",sans-serif}
+h1{font-size:58px;line-height:1.08;letter-spacing:-1.5px;margin:28px 0 10px;max-width:1500px}
+h1 em{font-style:normal;color:var(--accent)}
+.sub{font-size:24px;color:var(--muted)}
+.grid{flex:1;display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:32px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:28px;padding:30px 40px;display:flex;gap:36px;align-items:center;box-shadow:0 1px 2px rgb(35 36 31/6%),0 8px 28px rgb(35 36 31/7%)}
+.card .text{flex:1;min-width:0}
+.num{font-size:76px;font-weight:800;letter-spacing:-2px;line-height:1;color:var(--primary)}
+.num.hot{color:var(--accent)}
+.label{font-size:25px;line-height:1.3;margin-top:14px;font-weight:500}
+.src{font-size:18px;color:var(--muted);margin-top:16px}
+.viz{flex:none;width:170px;display:grid;place-items:center}
+.ring{width:150px;height:150px;border-radius:50%;display:grid;place-items:center}
+.ring span{width:104px;height:104px;border-radius:50%;background:var(--surface);display:grid;place-items:center;font-weight:800;font-size:30px}
+.people{display:grid;grid-template-columns:repeat(5,1fr);gap:12px 10px}
+.people i{width:24px;height:44px;position:relative;display:block}
+.people i::before{content:"";position:absolute;left:5px;top:0;width:14px;height:14px;border-radius:50%;background:var(--line)}
+.people i::after{content:"";position:absolute;left:0;top:17px;width:24px;height:27px;border-radius:12px 12px 4px 4px;background:var(--line)}
+.people i.on::before,.people i.on::after{background:var(--primary)}
+.bar{width:100%;height:150px;display:flex;align-items:flex-end;gap:0}
+.bar div{width:100%;background:var(--surface2);border-radius:16px;height:100%;position:relative;overflow:hidden}
+.bar div b{position:absolute;bottom:0;left:0;right:0;border-radius:16px}
+.foot{margin-top:24px;display:flex;justify-content:space-between;align-items:center;font-size:22px;color:var(--muted)}
+.foot strong{color:var(--primary)}
+/* single-card mode */
+body.single{justify-content:center;gap:24px}
+body.single .grid{grid-template-columns:1fr;flex:none;margin-top:0}
+body.single .card{padding:72px 80px;gap:72px;border-radius:40px}
+body.single .num{font-size:180px;letter-spacing:-5px}
+body.single .label{font-size:46px;margin-top:22px}
+body.single .src{font-size:26px;margin-top:26px}
+body.single .viz{width:320px;transform:scale(1.8)}
+body.single h1,body.single .sub{display:none}
+/* portrait */
+body.portrait{padding:48px 56px 36px}
+body.portrait h1{font-size:44px;margin-top:22px}
+body.portrait .sub{font-size:21px}
+body.portrait .grid{grid-template-columns:1fr;gap:16px;margin-top:24px}
+body.portrait .card{padding:20px 30px;gap:20px}
+body.portrait .num{font-size:56px}
+body.portrait .label{font-size:22px;margin-top:8px}
+body.portrait .src{font-size:16px;margin-top:8px}
+body.portrait .foot{font-size:18px;flex-direction:column;align-items:flex-start;gap:6px}
+body.portrait .viz{width:130px;transform:scale(.8)}
+</style></head>
+<body>
+<div class="brand"><div class="mark">अ</div>Dubhashi</div>
+<h1>India speaks hundreds of languages.<br class="wide"><em>Most of us speak just one.</em></h1>
+<p class="sub">And when two people can't understand each other, it isn't just awkward. It can be dangerous.</p>
+<div class="grid">
+  <div class="card" data-i="1">
+    <div class="text"><div class="num">45 crore</div>
+      <div class="label">Indians are internal migrants, 37% of the country</div>
+      <div class="src">Census of India 2011</div></div>
+    <div class="viz"><div class="ring" style="background:conic-gradient(var(--primary) 0 37%,var(--psoft) 0)"><span>37%</span></div></div>
+  </div>
+  <div class="card" data-i="2">
+    <div class="text"><div class="num">1 in 10</div>
+      <div class="label">Indians can speak English</div>
+      <div class="src">Census of India 2011: 10.6% speak it at all</div></div>
+    <div class="viz"><div class="people"><i class="on"></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div>
+  </div>
+  <div class="card" data-i="3">
+    <div class="text"><div class="num hot">81%</div>
+      <div class="label">of interstate migrant workers in South India report communication difficulties</div>
+      <div class="src">South India Interstate Migration Survey 2026, IIMAD: 1,824 workers</div></div>
+    <div class="viz"><div class="ring" style="background:conic-gradient(var(--accent) 0 81%,var(--asoft) 0)"><span>81%</span></div></div>
+  </div>
+  <div class="card" data-i="4">
+    <div class="text"><div class="num hot">53%</div>
+      <div class="label">of emergency clinicians saw a critical incident in one year where poor communication played a part</div>
+      <div class="src">Int J Emerg Med 2021: 106 clinicians, 6 Indian hospitals</div></div>
+    <div class="viz"><div class="ring" style="background:conic-gradient(var(--accent) 0 53%,var(--asoft) 0)"><span>53%</span></div></div>
+  </div>
+</div>
+<div class="foot"><span>Talk in your language. <strong>They hear theirs.</strong></span><span>#GnaniAI #GreatIndianAIInternshipChallenge</span></div>
+<script>
+const q=new URLSearchParams(location.search);
+if(q.get("mode")==="portrait")document.body.classList.add("portrait");
+const one=q.get("card");
+if(one){document.body.classList.add("single");document.querySelectorAll(".card").forEach(c=>{if(c.dataset.i!==one)c.remove()});document.querySelector(".foot").style.display="none";}
+</script>
+</body></html>
